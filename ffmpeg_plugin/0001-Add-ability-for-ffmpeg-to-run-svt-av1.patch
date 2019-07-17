@@ -15,7 +15,7 @@ Signed-off-by: ZhiZhen Tang <zhizhen.tang@intel.com>
  4 files changed, 490 insertions(+)
  create mode 100644 libavcodec/libsvt_av1.c
 
-diff --git a/configure b/configure
+diff --git a/configure b/configure_
 index a9644e211b..e5000880da 100755
 --- a/configure
 +++ b/configure
@@ -80,7 +80,7 @@ new file mode 100644
 index 0000000000..a044c1eac5
 --- /dev/null
 +++ b/libavcodec/libsvt_av1.c
-@@ -0,0 +1,484 @@
+@@ -0,0 +1,486 @@
 +/*
 +* Scalable Video Technology for AV1 encoder library plugin
 +*
@@ -512,9 +512,11 @@ index 0000000000..a044c1eac5
 +#undef LEVEL
 +
 +    { "rc", "Bit rate control mode", OFFSET(rc_mode),
-+      AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 1, VE , "rc"},
-+        { "cqp", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 0 },  INT_MIN, INT_MAX, VE, "rc" },
-+        { "vbr", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 1 },  INT_MIN, INT_MAX, VE, "rc" },
++      AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 3, VE , "rc"},
++        { "cqp",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 0 },  INT_MIN, INT_MAX, VE, "rc" },
++        { "vbr",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 1 },  INT_MIN, INT_MAX, VE, "rc" },
++        { "abr",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 2 },  INT_MIN, INT_MAX, VE, "rc" },
++        { "cvbr", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = 3 },  INT_MIN, INT_MAX, VE, "rc" },
 +
 +    { "qp", "QP value for intra frames", OFFSET(qp),
 +      AV_OPT_TYPE_INT, { .i64 = 50 }, 0, 63, VE },
