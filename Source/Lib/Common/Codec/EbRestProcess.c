@@ -26,7 +26,7 @@
 void ReconOutput(
     PictureControlSet    *picture_control_set_ptr,
     SequenceControlSet   *sequence_control_set_ptr);
-void av1_loop_restoration_filter_frame(Yv12BufferConfig *frame,
+void eb_av1_loop_restoration_filter_frame(Yv12BufferConfig *frame,
     Av1Common *cm, int32_t optimized_lr);
 void CopyStatisticsToRefObject(
     PictureControlSet    *picture_control_set_ptr,
@@ -60,7 +60,7 @@ static void rest_context_dctor(EbPtr p)
     EB_DELETE(obj->temp_lf_recon_picture16bit_ptr);
     EB_DELETE(obj->trial_frame_rst);
     EB_DELETE(obj->org_rec_frame);
-    EB_FREE(obj->rst_tmpbuf);
+    EB_FREE_ALIGNED(obj->rst_tmpbuf);
 }
 
 /******************************************************
@@ -109,7 +109,7 @@ EbErrorType rest_context_ctor(
             eb_picture_buffer_desc_ctor,
             (EbPtr)&initData);
 
-         EB_MALLOC(context_ptr->rst_tmpbuf, RESTORATION_TMPBUF_SIZE);
+         EB_MALLOC_ALIGNED(context_ptr->rst_tmpbuf, RESTORATION_TMPBUF_SIZE);
     }
 
     EbPictureBufferDescInitData tempLfReconDescInitData;
@@ -275,7 +275,7 @@ void* rest_kernel(void *input_ptr)
                     cm->rst_info[1].frame_restoration_type != RESTORE_NONE ||
                     cm->rst_info[2].frame_restoration_type != RESTORE_NONE)
                 {
-                    av1_loop_restoration_filter_frame(
+                    eb_av1_loop_restoration_filter_frame(
                         cm->frame_to_show,
                         cm,
                         0);

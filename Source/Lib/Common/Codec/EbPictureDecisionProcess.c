@@ -67,7 +67,8 @@ static INLINE int get_relative_dist(const OrderHintInfo *oh, int a, int b) {
     diff = (diff & (m - 1)) - (diff & m);
     return diff;
 }
-void av1_setup_skip_mode_allowed(PictureParentControlSet  *parent_pcs_ptr) {
+
+void eb_av1_setup_skip_mode_allowed(PictureParentControlSet  *parent_pcs_ptr) {
 
     FrameHeader *frm_hdr = &parent_pcs_ptr->frm_hdr;
 
@@ -1183,7 +1184,15 @@ EbErrorType signal_derivation_multi_processes_oq(
             picture_control_set_ptr->atb_mode = 1;
         else
             picture_control_set_ptr->atb_mode = 0;
-
+#if ENABLE_CDF_UPDATE
+        // Set frame end cdf update mode      Settings
+        // 0                                     OFF
+        // 1                                     ON
+        if (picture_control_set_ptr->enc_mode == ENC_M0)
+            picture_control_set_ptr->frame_end_cdf_update_mode = 1;
+        else
+            picture_control_set_ptr->frame_end_cdf_update_mode = 0;
+#endif
     return return_error;
 }
 
@@ -3522,7 +3531,7 @@ void* picture_decision_kernel(void *input_ptr)
                                 }
                             }
 
-                            av1_setup_skip_mode_allowed(picture_control_set_ptr);
+                            eb_av1_setup_skip_mode_allowed(picture_control_set_ptr);
 
                             picture_control_set_ptr->is_skip_mode_allowed = frm_hdr->skip_mode_params.skip_mode_allowed;
                             picture_control_set_ptr->skip_mode_flag = picture_control_set_ptr->is_skip_mode_allowed;

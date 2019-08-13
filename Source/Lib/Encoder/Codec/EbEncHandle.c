@@ -345,7 +345,7 @@ void asmSetConvolveAsmTable(void);
 void asmSetConvolveHbdAsmTable(void);
 void init_intra_dc_predictors_c_internal(void);
 void init_intra_predictors_internal(void);
-void av1_init_me_luts(void);
+void eb_av1_init_me_luts(void);
 
 void SwitchToRealTime(){
 #if defined(__linux__) || defined(__APPLE__)
@@ -438,10 +438,10 @@ EbErrorType load_default_buffer_configuration_settings(
 #if defined(_WIN32) || defined(__linux__)
     if (sequence_control_set_ptr->static_config.target_socket != -1)
         core_count /= num_groups;
+#endif
     if (sequence_control_set_ptr->static_config.logical_processors != 0)
         core_count = sequence_control_set_ptr->static_config.logical_processors < core_count ?
             sequence_control_set_ptr->static_config.logical_processors: core_count;
-#endif
 
 #ifdef _WIN32
     //Handle special case on Windows
@@ -910,7 +910,7 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
 
     build_blk_geom(scs_init.sb_size == 128);
 
-    av1_init_me_luts();
+    eb_av1_init_me_luts();
     init_fn_ptr();
 
     /************************************
@@ -1313,7 +1313,21 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
     // Picture Demux Results
     {
         PictureResultInitData pictureResultInitData;
+#if ENABLE_CDF_UPDATE
+        EB_NEW(
+            enc_handle_ptr->picture_demux_results_resource_ptr,
+            eb_system_resource_ctor,
+            enc_handle_ptr->sequence_control_set_instance_array[0]->sequence_control_set_ptr->picture_demux_fifo_init_count,
+            enc_handle_ptr->sequence_control_set_instance_array[0]->sequence_control_set_ptr->source_based_operations_process_init_count + enc_handle_ptr->sequence_control_set_instance_array[0]->sequence_control_set_ptr->rest_process_init_count + 1, // 1 for packetization
+            EB_PictureManagerProcessInitCount,
+            &enc_handle_ptr->picture_demux_results_producer_fifo_ptr_array,
+            &enc_handle_ptr->picture_demux_results_consumer_fifo_ptr_array,
+            EB_TRUE,
+            picture_results_creator,
+            &pictureResultInitData,
+            NULL);
 
+#else
         EB_NEW(
             enc_handle_ptr->picture_demux_results_resource_ptr,
             eb_system_resource_ctor,
@@ -1326,6 +1340,7 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
             picture_results_creator,
             &pictureResultInitData,
             NULL);
+#endif
     }
 
     // Rate Control Tasks
@@ -1696,11 +1711,23 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
     }
 
     // Packetization Context
+#if ENABLE_CDF_UPDATE
     EB_NEW(
         enc_handle_ptr->packetization_context_ptr,
         packetization_context_ctor,
         enc_handle_ptr->entropy_coding_results_consumer_fifo_ptr_array[0],
-        enc_handle_ptr->rate_control_tasks_producer_fifo_ptr_array[RateControlPortLookup(RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0)]);
+        enc_handle_ptr->rate_control_tasks_producer_fifo_ptr_array[RateControlPortLookup(RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0)]
+        , enc_handle_ptr->picture_demux_results_producer_fifo_ptr_array[enc_handle_ptr->sequence_control_set_instance_array[0]->sequence_control_set_ptr->source_based_operations_process_init_count +
+        enc_handle_ptr->sequence_control_set_instance_array[0]->sequence_control_set_ptr->enc_dec_process_init_count]
+    );
+#else
+    EB_NEW(
+        enc_handle_ptr->packetization_context_ptr,
+        packetization_context_ctor,
+        enc_handle_ptr->entropy_coding_results_consumer_fifo_ptr_array[0],
+        enc_handle_ptr->rate_control_tasks_producer_fifo_ptr_array[RateControlPortLookup(RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0)]
+    );
+#endif
 
     /************************************
     * Thread Handles
@@ -2698,10 +2725,14 @@ static void print_lib_params(
     EbSvtAv1EncConfiguration*   config = &scs->static_config;
 
     SVT_LOG("------------------------------------------- ");
-    if (config->profile == 0)
+    if (config->profile == MAIN_PROFILE)
         SVT_LOG("\nSVT [config]: Main Profile\t");
+    else if (config->profile == HIGH_PROFILE)
+        SVT_LOG("\nSVT [config]: High Profile\t");
+    else if (config->profile == PROFESSIONAL_PROFILE)
+        SVT_LOG("\nSVT [config]: Professional Profile\t");
     else
-        SVT_LOG("\nSVT [config]: Main10 Profile\t");
+        SVT_LOG("\nSVT [config]: Unknown Profile\t");
 
     if (config->tier != 0 && config->level != 0)
         SVT_LOG("Tier %d\tLevel %.1f\t", config->tier, (float)(config->level / 10));

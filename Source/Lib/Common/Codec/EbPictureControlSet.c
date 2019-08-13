@@ -20,11 +20,11 @@
 #include "EbPictureControlSet.h"
 #include "EbPictureBufferDesc.h"
 
-void *aom_memalign(size_t align, size_t size);
-void aom_free(void *memblk);
-void *aom_malloc(size_t size);
+void *eb_aom_memalign(size_t align, size_t size);
+void eb_aom_free(void *memblk);
+void *eb_aom_malloc(size_t size);
 
-EbErrorType av1_alloc_restoration_buffers(Av1Common *cm);
+EbErrorType eb_av1_alloc_restoration_buffers(Av1Common *cm);
 
 EbErrorType av1_hash_table_create(HashTable *p_hash_table);
 
@@ -212,7 +212,9 @@ void picture_control_set_dctor(EbPtr p)
 
     EB_FREE_ARRAY(obj->mi_grid_base);
     EB_FREE_ARRAY(obj->mip);
-
+#if ENABLE_CDF_UPDATE
+    EB_FREE_ARRAY(obj->md_rate_estimation_array);
+#endif
     EB_FREE_ARRAY(obj->ec_ctx_array);
     EB_FREE_ARRAY(obj->rate_est_array);
 
@@ -414,7 +416,11 @@ EbErrorType picture_control_set_ctor(
         sb_origin_y = (sb_origin_x == picture_sb_w - 1) ? sb_origin_y + 1 : sb_origin_y;
         sb_origin_x = (sb_origin_x == picture_sb_w - 1) ? 0 : sb_origin_x + 1;
     }
-
+#if ENABLE_CDF_UPDATE
+    // MD Rate Estimation Array
+    EB_MALLOC_ARRAY(object_ptr->md_rate_estimation_array, 1);
+    memset(object_ptr->md_rate_estimation_array, 0, sizeof(MdRateEstimationContext));
+#endif
     if (initDataPtr->cdf_mode == 0) {
         EB_MALLOC_ARRAY(object_ptr->ec_ctx_array, all_sb);
         EB_MALLOC_ARRAY(object_ptr->rate_est_array, all_sb);
@@ -987,8 +993,8 @@ EbErrorType picture_control_set_ctor(
 
     EB_CREATE_MUTEX(object_ptr->cdef_search_mutex);
 
-    //object_ptr->mse_seg[0] = (uint64_t(*)[64])aom_malloc(sizeof(**object_ptr->mse_seg) *  pictureLcuWidth * pictureLcuHeight);
-   // object_ptr->mse_seg[1] = (uint64_t(*)[64])aom_malloc(sizeof(**object_ptr->mse_seg) *  pictureLcuWidth * pictureLcuHeight);
+    //object_ptr->mse_seg[0] = (uint64_t(*)[64])eb_aom_malloc(sizeof(**object_ptr->mse_seg) *  pictureLcuWidth * pictureLcuHeight);
+   // object_ptr->mse_seg[1] = (uint64_t(*)[64])eb_aom_malloc(sizeof(**object_ptr->mse_seg) *  pictureLcuWidth * pictureLcuHeight);
 
     EB_MALLOC_ARRAY(object_ptr->mse_seg[0], pictureLcuWidth * pictureLcuHeight);
     EB_MALLOC_ARRAY(object_ptr->mse_seg[1], pictureLcuWidth * pictureLcuHeight);
@@ -1110,7 +1116,7 @@ static void picture_parent_control_set_dctor(EbPtr p)
     }
 
     EB_FREE_ARRAY(obj->av1_cm->frame_to_show);
-    EB_FREE_ARRAY(obj->av1_cm->rst_tmpbuf);
+    EB_FREE_ALIGNED(obj->av1_cm->rst_tmpbuf);
     EB_FREE_ARRAY(obj->av1_cm);
     EB_FREE_ARRAY(obj->rusi_picture[0]);
     EB_FREE_ARRAY(obj->rusi_picture[1]);
@@ -1267,7 +1273,7 @@ EbErrorType picture_parent_control_set_ctor(
 
     set_restoration_unit_size(initDataPtr->picture_width, initDataPtr->picture_height, 1, 1, object_ptr->av1_cm->rst_info);
 
-    return_error = av1_alloc_restoration_buffers(object_ptr->av1_cm);
+    return_error = eb_av1_alloc_restoration_buffers(object_ptr->av1_cm);
 
     memset(&object_ptr->av1_cm->rst_frame, 0, sizeof(Yv12BufferConfig));
 
